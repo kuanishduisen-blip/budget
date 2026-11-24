@@ -1,0 +1,1114 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Бюджет</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Бюджет">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F1012" media="(prefers-color-scheme: dark)">
+<meta name="format-detection" content="telephone=no">
+<meta name="google" content="notranslate">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<style>
+/* Layout: quiet single column (max 520px). One big number on top, sections separated by air and hairlines, composer fixed above a 5-tab bar */
+:root{
+  --bg:#FFFFFF; --soft:#F5F6F8; --ink:#111317; --muted:#646B76; --faint:#9AA0A9; --line:#E9EBEF;
+  --accent:#2B59C3; --accent-ink:#FFFFFF; --good:#1D7F55; --warn:#A86400; --bad:#C23A2B; --bad-soft:#FBEAE7; --good-soft:#E6F4EC; --warn-soft:#FBF0DC;
+  --f:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F1012; --soft:#191B1F; --ink:#EDEEF0; --muted:#9BA1AA; --faint:#6D737C; --line:#25282E;
+  --accent:#86A3F2; --accent-ink:#0F1012; --good:#5CC694; --warn:#E3A647; --bad:#F08473; --bad-soft:#3A1E1A; --good-soft:#15301F; --warn-soft:#33270F; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1012; --soft:#191B1F; --ink:#EDEEF0; --muted:#9BA1AA; --faint:#6D737C; --line:#25282E;
+  --accent:#86A3F2; --accent-ink:#0F1012; --good:#5CC694; --warn:#E3A647; --bad:#F08473; --bad-soft:#3A1E1A; --good-soft:#15301F; --warn-soft:#33270F; color-scheme:dark}
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--f);font-size:15px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.num{font-variant-numeric:tabular-nums}
+.app{max-width:520px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));padding-block:0 calc(150px + env(safe-area-inset-bottom,0px))}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;align-items:center;justify-content:space-between;padding-block:14px 8px}
+.navb{width:40px;height:40px;border:0;background:none;color:var(--muted);font-size:22px;border-radius:50%}
+.navb:hover{background:var(--soft)}
+#monthLbl{font-weight:600;font-size:15px;text-align:center;flex:1}
+button{font:inherit;cursor:pointer;color:inherit}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.view{display:flex;flex-direction:column;gap:28px;padding-top:8px}
+.sec{display:flex;flex-direction:column;gap:12px}
+.lbl{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+h2{font-size:17px;font-weight:600;margin:0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sub{font-size:13px;color:var(--muted)}
+.hr{height:1px;background:var(--line)}
+.notice{background:var(--warn-soft);border-radius:12px;padding:10px 14px;font-size:13px}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+.link{border:0;background:none;color:var(--accent);font-weight:600;padding:6px 0;font-size:14px}
+
+/* hero */
+.hero{display:flex;flex-direction:column;gap:6px;padding-top:8px}
+.hero .big{font-size:clamp(44px,13vw,58px);font-weight:300;letter-spacing:-.02em;line-height:1.05}
+.hero .big.neg{color:var(--bad)}
+.line{height:3px;border-radius:2px;background:var(--line);overflow:hidden;margin-top:6px}
+.line i{display:block;height:100%;background:var(--ink);border-radius:2px}
+.line i.bad{background:var(--bad)}
+
+/* chips & seg */
+.seg{display:flex;gap:4px;flex-wrap:wrap}
+.seg button{border:0;background:none;color:var(--muted);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:7px 12px;font-size:13px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+
+/* donut */
+.donutrow{display:flex;align-items:center;gap:20px}
+.donut{position:relative;width:132px;flex:none;aspect-ratio:1}
+.donut svg{width:100%;height:100%;transform:rotate(-90deg)}
+.donut .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.donut .c b{font-size:15px;font-weight:600}
+.dsum{display:flex;flex-direction:column;gap:6px;min-width:0}
+.dsum .v{font-size:26px;font-weight:300;letter-spacing:-.01em}
+.legend{display:flex;flex-direction:column}
+.lg{display:grid;grid-template-columns:8px minmax(0,1fr) auto;gap:2px 12px;align-items:center;padding:11px 0;border:0;border-top:1px solid var(--line);background:none;text-align:left;width:100%}
+.lg:first-child{border-top:0}
+.lg .sw{width:8px;height:8px;border-radius:50%}
+.lg .nm{display:flex;align-items:baseline;gap:8px;min-width:0}
+.lg .nt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.lg .pc{color:var(--faint);font-size:13px;white-space:nowrap;flex:none}
+.lg .am{font-weight:500;text-align:right}
+.lg .lim{grid-column:2/4;height:2px;border-radius:1px;background:var(--line);overflow:hidden;margin-top:6px}
+.lg .lim i{display:block;height:100%}
+.lg .ls{grid-column:2/4;font-size:12px;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.stats div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.stats b{font-size:18px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ir{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.ir:first-child{border-top:0}
+.ir span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ir b{font-weight:500;white-space:nowrap}
+
+/* review prompt */
+.prompt{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--soft);border-radius:16px;padding:14px 16px}
+.prompt b{font-weight:600}
+.btn{height:44px;border:0;border-radius:12px;background:var(--ink);color:var(--bg);font-weight:600;padding:0 18px;white-space:nowrap}
+.btn.ghost{background:var(--soft);color:var(--ink)}
+.btn.danger{background:var(--bad);color:#fff}
+.btn:disabled{opacity:.45;cursor:default}
+
+/* composer */
+.composer{position:fixed;left:0;right:0;bottom:calc(62px + env(safe-area-inset-bottom,0px));z-index:6;background:var(--bg);padding-top:8px;padding-bottom:10px;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+.composer .in{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.cbar{display:flex;gap:8px;align-items:center}
+.cbar input{flex:1;height:48px;border-radius:24px;padding:0 18px;background:var(--soft);border:1px solid var(--line)}
+.rbtn{width:48px;height:48px;border-radius:50%;border:0;flex:none;font-size:20px;display:flex;align-items:center;justify-content:center}
+.rbtn.send{background:var(--ink);color:var(--bg)}
+.rbtn.plus{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+.confirm{display:flex;align-items:center;gap:10px;background:var(--soft);border-radius:14px;padding:8px 8px 8px 14px;font-size:14px}
+.confirm .t{flex:1;min-width:0}
+.confirm .t div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.confirm select{height:34px;font-size:13px;max-width:44%}
+.confirm .x{border:0;background:none;color:var(--muted);font-size:13px;padding:6px}
+.sr{position:absolute;left:-9999px}
+
+/* tabs */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--bg);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+nav.tabs div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+nav.tabs button{border:0;background:none;color:var(--faint);height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:500}
+nav.tabs svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+nav.tabs button[aria-current="page"]{color:var(--ink)}
+
+/* ops */
+.dayh{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);padding:14px 0 4px;font-weight:500}
+.op{display:flex;flex-direction:column;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.dayh+.op{border-top:0}
+.op .l1{display:flex;align-items:center;gap:12px;cursor:pointer}
+.op .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.op .tx{flex:1;min-width:0}
+.op .tx div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op .tx small{display:block;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op .am{font-weight:500;white-space:nowrap}
+.op .am.inc{color:var(--good)}
+.op .ed{display:flex;gap:8px;flex-wrap:wrap}
+.mk{font-size:11px;border-radius:6px;padding:1px 6px;margin-left:6px;font-weight:600}
+.mk.waste{background:var(--bad-soft);color:var(--bad)}.mk.ok{background:var(--warn-soft);color:var(--warn)}.mk.need{background:var(--good-soft);color:var(--good)}
+select,input{font:inherit;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:10px;height:42px;padding:0 12px;min-width:0;box-sizing:border-box}
+input[type=file]{height:auto;padding:10px;width:100%}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(10,12,16,.4);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:520px;border-radius:22px 22px 0 0;padding:20px max(20px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px;max-height:92vh;overflow-y:auto;box-sizing:border-box}
+.amtin{font-size:36px;font-weight:300;height:64px;width:100%;text-align:center;background:none;border:0;border-bottom:1px solid var(--line);border-radius:0}
+.catgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.catgrid button{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:9px 10px;font-size:13px;display:flex;align-items:center;gap:8px;min-width:0;text-align:left}
+.catgrid button .d{width:8px;height:8px;border-radius:50%;flex:none}
+.catgrid button[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.f2 input,.f2 select{width:100%}
+.fcol{display:flex;flex-direction:column;gap:4px;min-width:0}
+.rv{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:10px 0}
+.rv .big{font-size:40px;font-weight:300}
+.rvb{display:grid;grid-template-columns:1fr;gap:8px}
+.rvb button{height:52px;border-radius:14px;border:1px solid var(--line);background:var(--bg);font-weight:600;font-size:15px}
+.rvb .need{color:var(--good)}.rvb .ok{color:var(--warn)}.rvb .waste{color:var(--bad)}
+
+/* import */
+.drop{border:1.5px dashed var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.prog{height:3px;border-radius:2px;background:var(--line);overflow:hidden}.prog i{display:block;height:100%;background:var(--ink);transition:width .3s}
+.irow{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.irow:first-child{border-top:0}
+.irow input[type=checkbox]{width:20px;height:20px;padding:0}
+.irow .tx div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.irow .tx small{color:var(--muted);font-size:12px}
+.irow select{grid-column:2/4;height:36px;font-size:13px}
+.tag{font-size:11px;border-radius:6px;padding:1px 6px;font-weight:600;margin-left:4px}
+.tag.dup{background:var(--warn-soft);color:var(--warn)}.tag.int{background:var(--soft);color:var(--muted)}
+
+/* plan */
+.bill{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.bill:first-child{border-top:0}
+.bill .day{text-align:center;line-height:1.1}
+.bill .day b{display:block;font-size:20px;font-weight:300}
+.bill .day small{font-size:11px;color:var(--muted)}
+.bill .tx{min-width:0}
+.bill .tx div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bill .st{font-size:12px;color:var(--muted)}
+.bill .st.paid{color:var(--good)}.bill .st.late{color:var(--bad)}.bill .st.soon{color:var(--warn)}
+.bill .r{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.bill .r b{font-weight:500}
+.bill .r button{border:0;background:none;color:var(--accent);font-size:12px;font-weight:600;padding:2px 0}
+.yr{display:flex;align-items:flex-end;gap:5px;height:160px}
+.yr button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%;border:0;background:none;padding:0;min-width:0}
+.yr button i{display:block;width:100%;border-radius:4px 4px 0 0;background:var(--line)}
+.yr button.has i{background:var(--faint)}
+.yr button.max i{background:var(--bad)}
+.yr button.cur i{background:var(--ink)}
+.yr button span{font-size:11px;color:var(--muted)}
+.yr button em{font-style:normal;font-size:10px;color:var(--muted);min-height:13px;white-space:nowrap}
+
+/* family */
+.mem{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:center}
+.av{width:32px;height:32px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px}
+.mem input{width:100%;height:40px}
+.xb{width:36px;height:36px;border-radius:50%;border:0;background:none;color:var(--muted);font-size:18px}
+.bar{height:3px;border-radius:2px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%}
+.limits{display:flex;flex-direction:column}
+.limits label{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:6px 0}
+.limits input{width:130px;height:38px;text-align:right}
+.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(60px + env(safe-area-inset-top,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;z-index:30;max-width:calc(100% - 40px)}
+@media (prefers-reduced-motion:reduce){.prog i{transition:none}}
+html{-webkit-text-size-adjust:100%;color-scheme:light}
+:root{padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;-webkit-tap-highlight-color:transparent;overscroll-behavior-y:none}
+/* gate: sign-in and family setup */
+.gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding-block:32px;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px));box-sizing:border-box}
+.gin{width:100%;max-width:380px;display:flex;flex-direction:column;gap:22px}
+.glogo{font-size:34px;font-weight:300;letter-spacing:-.02em;margin:0;line-height:1.1}
+.gform{display:flex;flex-direction:column;gap:10px}
+.gform input{width:100%;height:48px}
+.gform .btn{height:50px;width:100%}
+.gerr{color:var(--bad);font-size:14px;min-height:1em}
+.gsep{display:flex;align-items:center;gap:12px;color:var(--faint);font-size:13px}.gsep:before,.gsep:after{content:"";flex:1;height:1px;background:var(--line)}
+.code{font-size:30px;font-weight:300;letter-spacing:.12em;user-select:all;-webkit-user-select:all}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="gin">
+    <div><h1 class="glogo">Семейный бюджет</h1><p class="sub" id="gSub" style="margin:8px 0 0">Загрузка…</p></div>
+    <form class="gform" id="gCfg" hidden autocomplete="off">
+      <span class="lbl">Подключение к базе</span>
+      <input id="cfgUrl" placeholder="Project URL: https://….supabase.co" inputmode="url">
+      <input id="cfgKey" placeholder="Publishable key">
+      <button class="btn" type="submit">Подключить</button>
+    </form>
+    <form class="gform" id="gAuth" hidden>
+      <label class="sr" for="aEmail">Почта</label><input id="aEmail" type="email" placeholder="Почта" autocomplete="email" inputmode="email">
+      <label class="sr" for="aPass">Пароль</label><input id="aPass" type="password" placeholder="Пароль, не меньше 6 символов" autocomplete="current-password">
+      <button class="btn" type="submit" id="aGo">Войти</button>
+      <button class="link" type="button" id="aSwitch" style="align-self:center">Нет аккаунта? Зарегистрироваться</button>
+    </form>
+    <div id="gFam" hidden style="display:flex;flex-direction:column;gap:18px">
+      <form class="gform" id="famNew"><span class="lbl">Новая семья</span>
+        <label class="sr" for="fnName">Ваше имя</label><input id="fnName" placeholder="Как вас зовут" maxlength="24">
+        <button class="btn" type="submit">Создать семейный бюджет</button></form>
+      <div class="gsep">или</div>
+      <form class="gform" id="famJoin"><span class="lbl">У супруга(и) уже есть бюджет</span>
+        <label class="sr" for="fjCode">Код приглашения</label><input id="fjCode" placeholder="Код приглашения" autocapitalize="characters" maxlength="12">
+        <label class="sr" for="fjName">Ваше имя</label><input id="fjName" placeholder="Как вас зовут" maxlength="24">
+        <button class="btn ghost" type="submit">Присоединиться</button></form>
+      <button class="link" type="button" id="famOut" style="align-self:center">Выйти из аккаунта</button>
+    </div>
+    <div class="gerr" id="gErr" role="alert"></div>
+  </div>
+</div>
+
+<div class="app" id="appRoot" hidden>
+  <header class="top">
+    <button class="navb" id="prev" aria-label="Предыдущий месяц">‹</button>
+    <div id="monthLbl">—</div>
+    <button class="navb" id="next" aria-label="Следующий месяц">›</button>
+  </header>
+  
+
+  <!-- HOME -->
+  <section class="view" id="v-home">
+    <div class="hero">
+      <span class="lbl" id="heroLbl">Можно потратить сегодня</span>
+      <span class="big num" id="heroAmt">—</span>
+      <span class="sub" id="heroSub">Задайте лимит семьи на месяц во вкладке «Семья»</span>
+      <div class="line"><i id="heroBar" style="width:0%"></i></div>
+    </div>
+    <div class="prompt" id="revPrompt" hidden><div><b id="revPromptT">Разбор дня</b><div class="sub" id="revPromptS"></div></div><button class="btn" id="revOpen">Разобрать</button></div>
+    <div class="sec">
+      <div class="seg" id="whoSeg" role="group" aria-label="Чьи траты"></div>
+      <div class="donutrow">
+        <div class="donut"><svg viewBox="0 0 42 42" id="donutSvg" role="img" aria-label="Расходы по категориям"></svg><div class="c"><b class="num" id="expPct"></b></div></div>
+        <div class="dsum"><span class="sub">Потрачено</span><span class="v num" id="expTotal">0 ₸</span><span class="sub num" id="incTotal">Доход 0 ₸</span></div>
+      </div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="stats">
+      <div><span class="sub">Остаток</span><b class="num" id="balAmt">0 ₸</b></div>
+      <div><span class="sub">К прошлому</span><b class="num" id="vsPrev">—</b></div>
+      <div><span class="sub">Зря за месяц</span><b class="num" id="wasteAmt">0 ₸</b></div>
+    </div>
+    <div class="sec" id="soonSec" hidden><div class="row"><h2>Скоро платить</h2><button class="link" id="toPlan">Все платежи</button></div><div id="soonList"></div></div>
+    <div class="sec"><h2>Куда уходят деньги</h2><div class="seg" id="insSeg" role="group" aria-label="Раздел разбора"></div><div id="insBox"></div></div>
+  </section>
+
+  <!-- OPS -->
+  <section class="view" id="v-ops" hidden>
+    <div class="sec" style="gap:8px">
+      <div class="chips" id="opsWho"></div>
+      <div class="chips" id="opsSrc"></div>
+      <div class="row" id="catFilterRow" hidden><span class="sub" id="catFilterLbl"></span><button class="link" id="catFilterClear">Сбросить</button></div>
+    </div>
+    <div id="opsList"></div>
+  </section>
+
+  <!-- PLAN -->
+  <section class="view" id="v-plan" hidden>
+    <div class="hero">
+      <span class="lbl">Свободно до конца месяца</span>
+      <span class="big num" id="freeAmt">—</span>
+      <span class="sub" id="freeSub"></span>
+    </div>
+    <div class="sec">
+      <div class="row"><h2>Календарь платежей</h2><button class="link" id="billAddOpen">Добавить</button></div>
+      <div id="billForm" class="sec" hidden style="background:var(--soft);border-radius:16px;padding:14px">
+        <div class="f2"><div class="fcol"><label class="lbl" for="bName">Что</label><input id="bName" placeholder="Кредит за машину" maxlength="40"></div>
+          <div class="fcol"><label class="lbl" for="bAmt">Сумма, ₸</label><input id="bAmt" class="num" inputmode="numeric" placeholder="120 000"></div></div>
+        <div class="f2"><div class="fcol"><label class="lbl" for="bDay">Число месяца</label><input id="bDay" class="num" inputmode="numeric" placeholder="26"></div>
+          <div class="fcol"><label class="lbl" for="bCat">Категория</label><select id="bCat"></select></div></div>
+        <div class="row"><button class="btn ghost" id="billCancel">Отмена</button><button class="btn" id="billSave">Сохранить</button></div>
+      </div>
+      <div id="billList"></div>
+      <div id="billSuggest" class="sec" hidden><span class="lbl">Похоже на регулярные платежи</span><div id="billSugList"></div></div>
+    </div>
+    <div class="hr"></div>
+    <div class="sec">
+      <div class="row"><h2 id="yrTitle">Год</h2><span class="sub num" id="yrTotal"></span></div>
+      <div class="yr" id="yrBars" role="group" aria-label="Расходы по месяцам"></div>
+      <div id="yrStats"></div>
+      <span class="lbl" style="margin-top:6px">Главные статьи за год</span>
+      <div id="yrCats"></div>
+    </div>
+  </section>
+
+  <!-- IMPORT -->
+  <section class="view" id="v-imp" hidden>
+    <div class="sec">
+      <h2>Выписка из банка</h2>
+      <p class="sub" style="margin:0">PDF-выписка Kaspi или другого банка, либо скриншоты операций. Claude разберёт операции по категориям, а вы проверите их перед сохранением.</p>
+      <div class="drop"><label for="impFile" class="lbl">Файл выписки</label><input type="file" id="impFile" accept="application/pdf,image/png,image/jpeg,image/webp" multiple></div>
+      <div class="fcol"><label class="lbl" for="impWho">Чья это выписка</label><select id="impWho"></select></div>
+      <div class="row" style="justify-content:flex-start"><button class="btn" id="impGo" disabled>Разобрать</button><button class="btn ghost" id="impStop" hidden>Остановить</button></div>
+      <div id="impStatus" class="sub" hidden></div>
+      <div class="prog" id="impProg" hidden><i style="width:0%"></i></div>
+      <div class="notice" id="impNoSample" hidden></div>
+    </div>
+    <div class="sec" id="reviewCard" hidden>
+      <div class="row"><h2>Проверьте операции</h2><span class="sub num" id="revCount"></span></div>
+      <p class="sub" style="margin:0">Повторы и переводы между своими счетами сняты с отметки.</p>
+      <div id="revList"></div>
+      <div class="row"><button class="btn ghost" id="revCancel">Отмена</button><button class="btn" id="revSave">Сохранить</button></div>
+    </div>
+  </section>
+
+  <!-- FAMILY -->
+  <section class="view" id="v-fam" hidden>
+    <div class="sec"><h2>Кто сколько потратил</h2><div id="famSpend" style="display:flex;flex-direction:column;gap:16px"></div></div>
+    <div class="hr"></div>
+    <div class="sec">
+      <h2>Участники</h2>
+      <div id="famMembers" style="display:flex;flex-direction:column;gap:10px"></div>
+      <button class="link" id="addMember" style="align-self:flex-start">Добавить участника</button>
+      <div class="fcol"><label class="lbl" for="meSel">На этом телефоне записываю как</label><select id="meSel"></select></div>
+      <div class="sec" style="gap:6px;background:var(--soft);border-radius:16px;padding:14px 16px"><span class="lbl">Код для супруга(и)</span><span class="code num" id="inviteCode">—</span>
+      <span class="sub">Супруг(а) открывает это приложение на своём телефоне, регистрируется и выбирает «Присоединиться» с этим кодом.</span>
+      <button class="link" id="copyCode" style="align-self:flex-start">Скопировать код</button></div>
+    </div>
+    <div class="hr"></div>
+    <div class="sec">
+      <h2>Лимиты</h2>
+      <div class="limits"><label><b>Лимит семьи на месяц</b><input id="limMonth" class="num" inputmode="numeric" placeholder="не задан"></label></div>
+      <span class="lbl">По категориям</span>
+      <div class="limits" id="limCats"></div>
+    </div>
+    <div class="hr"></div>
+    <div class="sec"><span class="sub" id="accEmail"></span><button class="btn ghost" id="signOut" style="align-self:flex-start">Выйти из аккаунта</button></div>
+  </section>
+</div>
+
+<div class="composer" id="composer" hidden><div class="in">
+  <div class="confirm" id="lastAdd" hidden><div class="t"><div id="lastT"></div><span class="sub" id="lastS"></span></div><select id="lastCat" aria-label="Категория"></select><button class="x" id="lastUndo">Отменить</button></div>
+  <form class="cbar" id="chatForm" autocomplete="off">
+    <label for="chatIn" class="sr">Новая трата одной строкой</label>
+    <input id="chatIn" placeholder="Записать трату" enterkeyhint="send">
+    <button type="submit" class="rbtn send" aria-label="Записать">↑</button>
+    <button type="button" class="rbtn plus" id="openForm" aria-label="Подробная форма">+</button>
+  </form>
+</div></div>
+
+<nav class="tabs" id="tabsNav" aria-label="Разделы" hidden><div>
+  <button data-tab="home" aria-current="page"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4v8l6 4"/></svg>Обзор</button>
+  <button data-tab="ops"><svg viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h9"/></svg>Операции</button>
+  <button data-tab="plan"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>План</button>
+  <button data-tab="imp"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Выписка</button>
+  <button data-tab="fam"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c.5-3 3-5 6-5s5.5 2 6 5M15 14.5c2.5 0 4.5 1.5 5 4.5"/></svg>Семья</button>
+</div></nav>
+
+<div class="scrim" id="sheetScrim" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="row"><h2 id="sheetTitle">Новая запись</h2><button class="xb" id="sheetClose" aria-label="Закрыть">×</button></div>
+    <div class="seg" id="fType" role="group" aria-label="Тип"><button type="button" data-t="exp" aria-pressed="true">Расход</button><button type="button" data-t="inc" aria-pressed="false">Доход</button></div>
+    <label class="sr" for="fAmt">Сумма</label>
+    <input id="fAmt" class="amtin num" inputmode="numeric" placeholder="0 ₸" autocomplete="off">
+    <span class="lbl">Категория</span>
+    <div class="catgrid" id="fCats"></div>
+    <span class="lbl">Кто</span>
+    <div class="chips" id="fWho"></div>
+    <div class="f2"><div class="fcol"><label class="lbl" for="fDate">Дата</label><input id="fDate" type="date"></div>
+      <div class="fcol"><label class="lbl" for="fNote">Где / что</label><input id="fNote" placeholder="Magnum" autocomplete="off"></div></div>
+    <button class="btn" id="fSave">Сохранить</button>
+  </div>
+</div>
+
+<div class="scrim" id="revScrim" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="revTitle">
+    <div class="row"><h2 id="revTitle">Разбор дня</h2><button class="xb" id="revClose" aria-label="Закрыть">×</button></div>
+    <div id="revBody" style="display:flex;flex-direction:column;gap:12px"></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const EXP=["Продукты","Кафе и доставка","Авто и такси","Жильё и коммуналка","Семья и дети","Одежда","Здоровье и красота","Развлечения и отдых","Связь и подписки","Рассрочки и кредиты","Переводы людям","Подарки","Крупные покупки","Наличные","Прочее"];
+const INC=["Из бизнеса","Зарплата","Переводы от людей","Другой доход"];
+const COL=["#4C78C9","#D98B4E","#4E9C78","#9A7457","#C46C93","#8571C2","#C98AA8","#4AA3A3","#6574B0","#B95A4A","#C9A23F","#7A9A4E","#5C93BE","#7C8794","#A9AEB6"];
+const MCOL=["#2B59C3","#C9683F","#1D7F55","#7D57C1","#A87C12","#B33A2B"];
+const MON=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+const MONG=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+const MONS=["Я","Ф","М","А","М","И","И","А","С","О","Н","Д"];
+const KW=[[/магнум|magnum|small|смолл|галмарт|galmart|метро|metro|арбуз|ашан|продукт|хлеб|молок|мясо|овощ|фрукт|рынок|базар|анвар|anvar/,"Продукты"],
+ [/кофе|coffee|кафе|ресторан|обед|ужин|завтрак|wolt|glovo|доставк|chocofood|бургер|пицц|суши|шаурм|kfc|макдон|starbucks|столов/,"Кафе и доставка"],
+ [/бензин|заправк|азс|helios|гелиос|такси|taxi|yandex go|яндекс го|indrive|парковк|мойк|автомо|шиномонт|запчаст|штраф/,"Авто и такси"],
+ [/коммунал|свет|электр|газ|вода|отоплен|аренд|квартплат|кск|осми/,"Жильё и коммуналка"],
+ [/дет|школ|садик|кружок|кружк|секци|игрушк|репетит|памперс/,"Семья и дети"],
+ [/одежд|обув|zara|куртк|джинс|кроссов|платье|рубаш/,"Одежда"],
+ [/аптек|врач|стомат|клиник|анализ|салон|маникюр|стрижк|барбер|космет/,"Здоровье и красота"],
+ [/кино|отдых|бассейн|спорт|фитнес|концерт|театр|боулинг|путешеств|отел|билет/,"Развлечения и отдых"],
+ [/связь|телефон|интернет|подписк|beeline|билайн|activ|актив|kcell|tele2|алтел|altel|netflix|spotify|icloud|youtube/,"Связь и подписки"],
+ [/кредит|рассроч|ипотек|займ/,"Рассрочки и кредиты"],
+ [/перевод|скинул|отправил|маме|папе|брату|сестре/,"Переводы людям"],
+ [/подар|цвет[оы]|букет/,"Подарки"],[/наличн|снял|банкомат/,"Наличные"],[/телевизор|холодильник|мебел|ремонт|ноутбук|айфон|iphone|смартфон/,"Крупные покупки"]];
+const KWI=[[/бизнес|ип |тоо|офис|компан|ипотеки/,"Из бизнеса"],[/зарплат|аванс/,"Зарплата"],[/перевод|вернул|долг/,"Переводы от людей"]];
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,"0");
+const fmt=n=>Math.round(Math.abs(n)).toLocaleString("ru-RU").replace(/[\s ,]/g," ")+" ₸";
+const short=v=>v>=1e6?(v/1e6).toLocaleString("ru-RU",{maximumFractionDigits:1})+"м":v>=1e3?Math.round(v/1e3)+"к":String(Math.round(v));
+const catColor=c=>{const i=EXP.indexOf(c);return i<0?"#4E9C78":COL[i]};
+const now=new Date();
+const dstr=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const todayStr=dstr(now);
+const curMonth=todayStr.slice(0,7);
+function shiftMonth(m,d){let [y,mo]=m.split("-").map(Number);mo+=d;while(mo<1){mo+=12;y--}while(mo>12){mo-=12;y++}return y+"-"+pad(mo)}
+function uid(){if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();return"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:(r&3|8)).toString(16)})}
+function toast(t){const e=$("toast");e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,2600)}
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+const fmtIn=v=>v?Number(v).toLocaleString("ru-RU").replace(/[\s ,]/g," "):"";
+function opt(sel,list,cur,vals){sel.innerHTML="";list.forEach((c,i)=>{const o=document.createElement("option");o.textContent=c;o.value=vals?vals[i]:c;if((vals?vals[i]:c)===cur)o.selected=true;sel.appendChild(o)})}
+
+/* ---------- state ---------- */
+let sb=null, sample=null, familyId=null, family=null, userId=null, rt=null;
+let month=curMonth, docs=[], items=[], prevItems=[], olderItems=[];
+let settings={members:[{id:"m1",name:"Я"},{id:"m2",name:"Супруг(а)"}],monthLimit:0,limits:{},bills:[]};
+let me=lsGet("fb-me")||"m1";
+let tab="home", whoFilter="all", insTab="places", opsWho="all", opsSrc="all", catFilter=null, editId=null, confirmDel=null, yearCache=null;
+let unsub=null;
+const local={docs:{}};
+const chains={};
+function serial(k,fn){chains[k]=(chains[k]||Promise.resolve()).then(fn,fn);return chains[k]}
+
+/* ---------- storage (Supabase) ---------- */
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function rowToItem(r){return{id:r.id,t:r.t,amt:Number(r.amt),cat:r.cat,date:String(r.date).slice(0,10),who:r.who||"",note:r.note||"",merchant:r.merchant||"",src:r.src||"manual",kind:r.kind||"",mark:r.mark||"",bill:r.bill||"",_doc:r.id}}
+function itemToRow(it){return{id:it.id,family_id:familyId,month:it.date.slice(0,7),date:it.date,t:it.t,amt:Math.round(it.amt),cat:it.cat,who:it.who||null,note:it.note||null,merchant:it.merchant||null,src:it.src||null,kind:it.kind||null,mark:it.mark||null,bill:it.bill||null}}
+async function fetchMonths(ms){
+  if(!sb||!familyId)return[];
+  const {data,error}=await sb.from("ops").select("*").eq("family_id",familyId).in("month",ms).order("date",{ascending:false}).limit(5000);
+  if(error){netErr(error);return[]}return data.map(rowToItem);
+}
+let reloadT=null;
+async function reloadMonth(){const m=month;const list=await fetchMonths([m]);if(m!==month)return;items=list;docs=[];yearCache=null;render()}
+function scheduleReload(){clearTimeout(reloadT);reloadT=setTimeout(reloadMonth,250)}
+function netErr(e){if(!navigator.onLine)toast("Нет интернета. Данные обновятся, когда связь появится")}
+async function addDoc(m,list){
+  yearCache=null;
+  list.forEach(it=>{if(!UUID.test(it.id||""))it.id=uid()});
+  for(let i=0;i<list.length;i+=500){const {error}=await sb.from("ops").insert(list.slice(i,i+500).map(itemToRow));if(error)throw error}
+  if(list.some(it=>it.date.slice(0,7)===month)){items=items.concat(list.filter(it=>it.date.slice(0,7)===month).map(it=>Object.assign({},it,{_doc:it.id})));render()}
+  scheduleReload();return list[0]&&list[0].id;
+}
+function subscribe(){
+  reloadMonth();
+  if(rt||!sb||!familyId)return;
+  rt=sb.channel("fam-"+familyId)
+    .on("postgres_changes",{event:"*",schema:"public",table:"ops",filter:"family_id=eq."+familyId},()=>scheduleReload())
+    .on("postgres_changes",{event:"UPDATE",schema:"public",table:"families",filter:"id=eq."+familyId},p=>{if(p.new&&p.new.settings)applySettings(p.new.settings)})
+    .subscribe();
+}
+let setTimer;
+function saveSettings(msg){clearTimeout(setTimer);setTimer=setTimeout(async()=>{
+  try{const {error}=await sb.from("families").update({settings:JSON.parse(JSON.stringify(settings))}).eq("id",familyId);if(error)throw error;if(msg)toast(msg)}catch(e){toast("Не удалось сохранить настройки. Проверьте интернет")}},350)}
+async function updateItem(i,patch){
+  const p={};["cat","who","mark","note","merchant"].forEach(k=>{if(k in patch)p[k]=patch[k]||null});
+  const idx=items.findIndex(x=>x.id===i.id);if(idx>=0){items[idx]=Object.assign({},items[idx],patch);}
+  const {error}=await sb.from("ops").update(p).eq("id",i.id);
+  if(error){toast("Не удалось сохранить изменение. Проверьте интернет");scheduleReload();return false}
+  yearCache=null;render();return true;
+}
+async function removeItem(i){
+  items=items.filter(x=>x.id!==i.id);render();
+  const {error}=await sb.from("ops").delete().eq("id",i.id);
+  if(error){toast("Не удалось удалить. Проверьте интернет");scheduleReload()}else{yearCache=null;toast("Запись удалена")}
+}
+function applySettings(d){
+  d=d||{};
+  settings={members:Array.isArray(d.members)&&d.members.length?d.members.map(m=>({id:String(m.id),name:String(m.name||"").slice(0,24)})):settings.members,
+    monthLimit:Number(d.monthLimit)||0,limits:Object.assign({},d.limits||{}),
+    bills:Array.isArray(d.bills)?d.bills.map(b=>({id:String(b.id),name:String(b.name||"").slice(0,40),amt:Number(b.amt)||0,day:Math.min(Math.max(Number(b.day)||1,1),31),cat:EXP.includes(b.cat)?b.cat:"Прочее"})):[]};
+  if(!settings.members.find(x=>x.id===me))me=settings.members[0].id;
+  const ae=document.activeElement;if(ae&&ae.closest&&(ae.closest("#v-fam")||ae.closest("#billForm")))return;render();
+}
+
+/* ---------- Claude (через функцию Supabase) ---------- */
+const blobToB64=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(b)});
+async function shrinkImage(b){
+  try{const bmp=await createImageBitmap(b);const sc=Math.min(1,1600/Math.max(bmp.width,bmp.height));const c=document.createElement("canvas");c.width=Math.round(bmp.width*sc);c.height=Math.round(bmp.height*sc);c.getContext("2d").drawImage(bmp,0,0,c.width,c.height);
+    return await new Promise(r=>c.toBlob(r,"image/jpeg",0.82))}catch(e){return b}
+}
+function parseLoose(t){
+  t=String(t||"").trim();try{return JSON.parse(t)}catch(e){}
+  const f=t.match(/```(?:json)?\s*([\s\S]*?)```/);if(f){try{return JSON.parse(f[1])}catch(e){}}
+  const a=t.search(/[\[{]/),z=Math.max(t.lastIndexOf("]"),t.lastIndexOf("}"));if(a>=0&&z>a){try{return JSON.parse(t.slice(a,z+1))}catch(e){}}
+  throw{code:"invalid_json"};
+}
+function makeSample(){return{
+  limits:async()=>({images:{maxCount:3}}),
+  json:async(input,opts={})=>{
+    if(opts.signal&&opts.signal.aborted)throw{code:"cancelled"};
+    let images=[];
+    if(opts.images){for(const b of [].concat(opts.images)){const s=await shrinkImage(b);images.push({type:s.type||"image/jpeg",data:await blobToB64(s)})}}
+    const call=sb.functions.invoke("claude",{body:{prompt:String(input),images,small:!!opts.small}});
+    const res=await (opts.signal?Promise.race([call,new Promise((_,rej)=>opts.signal.addEventListener("abort",()=>rej({code:"cancelled"}),{once:true}))]):call);
+    if(res.error){let d={};try{d=await res.error.context.json()}catch(e){}
+      throw{code:d.error==="no_api_key"?"no_key":d.status===429?"rate_limited":d.status===401||d.error==="unauthorized"?"session_expired":d.status===400&&/credit|balance|billing/i.test(d.detail||"")?"no_credit":"upstream_error",detail:d.detail}}
+    const d=res.data||{};if(d.truncated)throw{code:"invalid_json"};
+    return parseLoose(d.text);
+  }}}
+
+/* ---------- helpers ---------- */
+const mem=id=>settings.members.find(m=>m.id===id)||{id,name:"—"};
+const memColor=id=>{const i=settings.members.findIndex(m=>m.id===id);return MCOL[(i<0?0:i)%MCOL.length]};
+const visible=list=>list.filter(i=>whoFilter==="all"||i.who===whoFilter);
+const sumT=(list,t)=>list.filter(i=>i.t===t).reduce((a,i)=>a+i.amt,0);
+const catSum=(list,c)=>list.filter(i=>i.t==="exp"&&i.cat===c).reduce((a,i)=>a+i.amt,0);
+const place=i=>(i.merchant||i.note||i.cat||"").trim();
+function dayLabel(d){if(d===todayStr)return"Сегодня";const y=new Date(now);y.setDate(y.getDate()-1);if(d===dstr(y))return"Вчера";const x=new Date(d+"T12:00:00");return x.getDate()+" "+MONG[x.getMonth()]}
+
+/* ---------- render ---------- */
+function render(){
+  const [y,mo]=month.split("-").map(Number);
+  $("monthLbl").textContent=MON[mo-1]+" "+y;
+  if(tab==="home")renderHome();
+  if(tab==="ops")renderOps();
+  if(tab==="plan")renderPlan();
+  if(tab==="fam")renderFam();
+}
+
+function renderHome(){
+  const ws=$("whoSeg");ws.innerHTML="";
+  [{id:"all",name:"Вся семья"}].concat(settings.members).forEach(m=>{const b=document.createElement("button");b.textContent=m.name;b.setAttribute("aria-pressed",whoFilter===m.id);b.onclick=()=>{whoFilter=m.id;renderHome()};ws.appendChild(b)});
+  const list=visible(items);
+  const exp=sumT(list,"exp"),inc=sumT(list,"inc");
+  $("expTotal").textContent=fmt(exp);$("incTotal").textContent="Доход "+fmt(inc);
+  const L=settings.monthLimit;$("expPct").textContent=L&&whoFilter==="all"?Math.round(exp/L*100)+"%":"";
+  const bal=inc-exp;if(!inc){$("balAmt").textContent="—";$("balAmt").style.color="";$("balAmt").title="Внесите доход, чтобы видеть остаток"}else{$("balAmt").textContent=(bal<0?"−":"")+fmt(bal);$("balAmt").style.color=bal<0?"var(--bad)":""}
+  const pe=sumT(visible(prevItems),"exp");
+  if(pe){const d=Math.round((exp-pe)/pe*100);$("vsPrev").textContent=(d>0?"+":d<0?"−":"")+Math.abs(d)+"%";$("vsPrev").style.color=d>0?"var(--bad)":"var(--good)"}else{$("vsPrev").textContent="—";$("vsPrev").style.color=""}
+  const waste=list.filter(i=>i.t==="exp"&&i.mark==="waste").reduce((a,i)=>a+i.amt,0);$("wasteAmt").textContent=fmt(waste);$("wasteAmt").style.color=waste?"var(--bad)":"";
+  renderHero();renderRevPrompt();renderSoon();
+  const rows=EXP.map(c=>({c,s:catSum(list,c)})).filter(r=>r.s>0).sort((a,b)=>b.s-a.s);
+  let h='<circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--line)" stroke-width="3.2"/>',off=0;
+  rows.forEach(r=>{const p=r.s/exp*100,w=Math.max(p-0.8,0.3);h+='<circle cx="21" cy="21" r="15.915" fill="none" stroke="'+catColor(r.c)+'" stroke-width="3.2" stroke-dasharray="'+w.toFixed(2)+' '+(100-w).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'"/>';off+=p});
+  $("donutSvg").innerHTML=h;
+  const lg=$("legend");lg.innerHTML="";const lim=settings.limits||{};
+  rows.concat(EXP.filter(c=>lim[c]&&!rows.find(r=>r.c===c)).map(c=>({c,s:0}))).forEach(r=>{
+    const b=document.createElement("button");b.className="lg";const Lc=lim[r.c]||0,ratio=Lc?r.s/Lc:0;
+    b.innerHTML='<span class="sw"></span><span class="nm"></span><span class="am num"></span>'+(Lc?'<span class="lim"><i></i></span><span class="ls num"></span>':'');
+    b.querySelector(".sw").style.background=catColor(r.c);
+    const nm=b.querySelector(".nm");const nt=document.createElement("span");nt.className="nt";nt.textContent=r.c;nm.appendChild(nt);if(exp&&r.s){const p=document.createElement("span");p.className="pc num";p.textContent=Math.round(r.s/exp*100)+" %";nm.appendChild(p)}
+    b.querySelector(".am").textContent=fmt(r.s);
+    if(Lc){const bi=b.querySelector(".lim i");bi.style.width=Math.min(ratio*100,100)+"%";bi.style.background=ratio>1?"var(--bad)":ratio>.8?"var(--warn)":"var(--ink)";
+      const ls=b.querySelector(".ls");ls.textContent=r.s>Lc?"Сверх лимита на "+fmt(r.s-Lc):"Осталось "+fmt(Lc-r.s)+" из "+fmt(Lc);if(r.s>Lc)ls.style.color="var(--bad)"}
+    b.onclick=()=>{catFilter=r.c;setTab("ops")};lg.appendChild(b);
+  });
+  if(!lg.children.length)lg.innerHTML='<div class="empty">Расходов за месяц пока нет. Запишите трату внизу или загрузите выписку.</div>';
+  renderInsights(list);
+}
+
+function renderHero(){
+  const L=settings.monthLimit||0,amt=$("heroAmt"),bar=$("heroBar");
+  const [y,mo]=month.split("-").map(Number);const days=new Date(y,mo,0).getDate();
+  bar.classList.remove("bad");amt.classList.remove("neg");
+  if(!L){$("heroLbl").textContent="Потрачено за месяц";amt.textContent=fmt(sumT(items,"exp"));$("heroSub").textContent="Задайте лимит семьи на месяц во вкладке «Семья», и здесь будет дневная норма";bar.style.width="0%";return}
+  if(month!==curMonth){const e=sumT(items,"exp");$("heroLbl").textContent=month<curMonth?"Итог месяца":"Лимит месяца";
+    amt.textContent=(e>L?"−":"")+fmt(L-e);if(e>L){amt.classList.add("neg");bar.classList.add("bad")}
+    $("heroSub").textContent=(month<curMonth?(e>L?"Перерасход. ":"В рамках лимита. "):"")+"Потрачено "+fmt(e)+" из "+fmt(L);bar.style.width=Math.min(e/L*100,100)+"%";return}
+  const d=now.getDate(),left=days-d+1;
+  const before=items.filter(i=>i.t==="exp"&&i.date<todayStr).reduce((a,i)=>a+i.amt,0);
+  const todaySp=items.filter(i=>i.t==="exp"&&i.date===todayStr).reduce((a,i)=>a+i.amt,0);
+  const norm=Math.max(L-before,0)/left,can=norm-todaySp;
+  $("heroLbl").textContent="Можно потратить сегодня";
+  amt.textContent=(can<0?"−":"")+fmt(can);
+  if(can<0){amt.classList.add("neg");bar.classList.add("bad")}
+  $("heroSub").textContent=can<0?"Норма превышена. Завтрашняя станет меньше":"Потрачено сегодня "+fmt(todaySp)+" из "+fmt(norm)+" · до конца месяца "+left+" дн.";
+  bar.style.width=norm?Math.min(todaySp/norm*100,100)+"%":"100%";
+}
+
+/* ---------- evening review ---------- */
+function reviewDay(){
+  const y=new Date(now);y.setDate(y.getDate()-1);const ys=dstr(y);
+  const un=d=>items.filter(i=>i.t==="exp"&&i.date===d&&!i.mark&&i.cat!=="Рассрочки и кредиты"&&i.cat!=="Жильё и коммуналка");
+  if(month!==curMonth)return null;
+  if(un(todayStr).length&&now.getHours()>=17)return{d:todayStr,list:un(todayStr)};
+  if(un(ys).length)return{d:ys,list:un(ys)};
+  if(un(todayStr).length)return{d:todayStr,list:un(todayStr)};
+  return null;
+}
+const plural=(n,a,b,c)=>{const m=n%10,h=n%100;return m===1&&h!==11?a:m>=2&&m<=4&&(h<12||h>14)?b:c};
+function renderRevPrompt(){
+  const r=reviewDay();$("revPrompt").hidden=!r;if(!r)return;
+  $("revPromptT").textContent="Разбор дня: "+dayLabel(r.d).toLowerCase();
+  $("revPromptS").textContent="Отметьте "+r.list.length+" "+plural(r.list.length,"трату","траты","трат")+": нужна или зря";
+}
+let revQueue=[],revIdx=0,revDay=null;
+function openReview(){const r=reviewDay();if(!r)return;revQueue=r.list.slice();revIdx=0;revDay=r.d;$("revScrim").hidden=false;drawReview1()}
+function drawReview1(){
+  const b=$("revBody");b.innerHTML="";
+  if(revIdx>=revQueue.length){
+    const w=items.filter(i=>i.t==="exp"&&i.date===revDay&&i.mark==="waste").reduce((a,i)=>a+i.amt,0);
+    const mw=items.filter(i=>i.t==="exp"&&i.mark==="waste").reduce((a,i)=>a+i.amt,0);
+    b.innerHTML='<div class="rv"><span class="sub">Готово</span><span class="big num"></span><span class="sub" id="revFin"></span></div><button class="btn" id="revDone">Закрыть</button>';
+    b.querySelector(".big").textContent=fmt(w);
+    $("revFin").textContent=w?"ушло зря за день. За месяц зря уже "+fmt(mw):"Ни одной лишней траты за день";
+    $("revDone").onclick=()=>{$("revScrim").hidden=true};return;
+  }
+  const i=revQueue[revIdx];
+  b.innerHTML='<div class="rv"><span class="sub" id="revN"></span><span class="big num"></span><b id="revPl"></b><span class="sub" id="revC"></span></div><div class="rvb"><button class="need">Нужна</button><button class="ok">Можно было без неё</button><button class="waste">Зря</button></div><button class="link" id="revSkip" style="align-self:center">Пропустить</button>';
+  $("revN").textContent=(revIdx+1)+" из "+revQueue.length;$("revC").textContent=i.cat+" · "+mem(i.who).name;
+  b.querySelector(".big").textContent=fmt(i.amt);$("revPl").textContent=place(i);
+  ["need","ok","waste"].forEach(k=>b.querySelector(".rvb ."+k).onclick=async()=>{const it=i;revIdx++;await updateItem(it,{mark:k});drawReview1()});
+  $("revSkip").onclick=()=>{revIdx++;drawReview1()};
+}
+$("revOpen").onclick=openReview;
+$("revClose").onclick=()=>{$("revScrim").hidden=true};
+$("revScrim").addEventListener("click",e=>{if(e.target===$("revScrim"))$("revScrim").hidden=true});
+
+/* ---------- insights ---------- */
+function renderInsights(list){
+  const seg=$("insSeg");seg.innerHTML="";
+  [["places","Места"],["people","Переводы"],["regular","Регулярные"],["small","Мелочи"],["waste","Зря"]].forEach(([k,t])=>{const b=document.createElement("button");b.textContent=t;b.setAttribute("aria-pressed",insTab===k);b.onclick=()=>{insTab=k;renderInsights(visible(items))};seg.appendChild(b)});
+  const box=$("insBox");box.innerHTML="";const exp=list.filter(i=>i.t==="exp");
+  const add=(a,b)=>{const r=document.createElement("div");r.className="ir";const s1=document.createElement("span");s1.textContent=a;const s2=document.createElement("b");s2.className="num";s2.textContent=b;r.append(s1,s2);box.appendChild(r)};
+  const note=t=>{const n=document.createElement("div");n.className="empty";n.textContent=t;box.appendChild(n)};
+  const group=arr=>{const m={};arr.forEach(i=>{const k=place(i);if(!k)return;m[k]=m[k]||{s:0,n:0};m[k].s+=i.amt;m[k].n++});return Object.entries(m).sort((a,b)=>b[1].s-a[1].s)};
+  const lbl=(k,v)=>k+(v.n>1?" · "+v.n+" "+plural(v.n,"раз","раза","раз"):"");
+  if(insTab==="places"){const g=group(exp.filter(i=>i.cat!=="Переводы людям"&&i.cat!=="Наличные")).slice(0,7);if(!g.length)return note("Здесь появятся магазины и сервисы, где уходит больше всего. Лучше всего работает с выпиской.");g.forEach(([k,v])=>add(lbl(k,v),fmt(v.s)))}
+  else if(insTab==="people"){const tr=exp.filter(i=>i.cat==="Переводы людям"),g=group(tr).slice(0,7),cash=catSum(list,"Наличные");
+    if(!g.length&&!cash)return note("Здесь будут переводы людям: кому и сколько за месяц.");if(g.length){add("Всего переводов",fmt(tr.reduce((a,i)=>a+i.amt,0)));g.forEach(([k,v])=>add(lbl(k,v),fmt(v.s)))}if(cash)add("Снято наличными",fmt(cash))}
+  else if(insTab==="regular"){const reg=regulars(exp);if(!reg.length)return note("Здесь появятся подписки, рассрочки и платежи, которые повторяются каждый месяц.");add("Всего регулярных",fmt(reg.reduce((a,i)=>a+i.amt,0)));reg.slice(0,8).forEach(i=>add(place(i),fmt(i.amt)))}
+  else if(insTab==="small"){const sm=exp.filter(i=>i.amt<3000);if(!sm.length)return note("Здесь будут покупки до 3 000 ₸. По отдельности незаметны, в сумме за месяц выходит заметно.");add("Покупок до 3 000 ₸: "+sm.length,fmt(sm.reduce((a,i)=>a+i.amt,0)));group(sm).slice(0,5).forEach(([k,v])=>add(lbl(k,v),fmt(v.s)))}
+  else{const w=exp.filter(i=>i.mark==="waste"),ok=exp.filter(i=>i.mark==="ok");if(!w.length&&!ok.length)return note("Здесь будут траты, которые вы отметили «зря» в разборе дня, и где они случаются чаще всего.");
+    if(w.length)add("Отмечено «зря»",fmt(w.reduce((a,i)=>a+i.amt,0)));if(ok.length)add("«Можно было без неё»",fmt(ok.reduce((a,i)=>a+i.amt,0)));group(w).slice(0,5).forEach(([k,v])=>add(lbl(k,v),fmt(v.s)))}
+}
+function regulars(exp){
+  const key=i=>place(i).toLowerCase();const pk={};prevItems.concat(olderItems).filter(i=>i.t==="exp").forEach(i=>{(pk[key(i)]=pk[key(i)]||[]).push(i.amt)});
+  const seen={},reg=[];exp.forEach(i=>{const k=key(i);if(!k||seen[k])return;const same=(pk[k]||[]).some(a=>Math.abs(a-i.amt)<=Math.max(i.amt*0.1,200));
+    if(same||i.cat==="Связь и подписки"||i.cat==="Рассрочки и кредиты"){seen[k]=1;reg.push(i)}});
+  return reg.sort((a,b)=>b.amt-a.amt);
+}
+
+/* ---------- bills ---------- */
+function billStatus(b){
+  const [y,mo]=month.split("-").map(Number);const days=new Date(y,mo,0).getDate();const day=Math.min(b.day,days);
+  const nm=(b.name||"").toLowerCase();
+  const paid=items.find(i=>i.t==="exp"&&(i.bill===b.id||(nm&&place(i).toLowerCase().includes(nm))||(i.cat===b.cat&&Math.abs(i.amt-b.amt)<=Math.max(b.amt*0.05,100))));
+  if(paid)return{k:"paid",t:"Оплачено "+dayLabel(paid.date).toLowerCase(),day};
+  if(month<curMonth)return{k:"late",t:"Не найдено в операциях",day};
+  if(month>curMonth)return{k:"",t:b.cat,day};
+  const diff=day-now.getDate();
+  if(diff<0)return{k:"late",t:"Просрочен на "+(-diff)+" дн.",day};
+  if(diff===0)return{k:"soon",t:"Сегодня",day};
+  return{k:diff<=3?"soon":"",t:"Через "+diff+" дн.",day};
+}
+function renderSoon(){
+  const bills=settings.bills||[];if(month!==curMonth||!bills.length){$("soonSec").hidden=true;return}
+  const up=bills.map(b=>({b,s:billStatus(b)})).filter(x=>x.s.k!=="paid"&&(x.s.day-now.getDate())<=7).sort((a,b)=>a.s.day-b.s.day);
+  $("soonSec").hidden=!up.length;const box=$("soonList");box.innerHTML="";
+  up.slice(0,4).forEach(x=>box.appendChild(billRow(x.b,x.s,false)));
+}
+function billRow(b,s,full){
+  const r=document.createElement("div");r.className="bill";
+  r.innerHTML='<div class="day"><b class="num"></b><small></small></div><div class="tx"><div></div><span class="st"></span></div><div class="r"><b class="num"></b></div>';
+  r.querySelector(".day b").textContent=s.day;r.querySelector(".day small").textContent=MONG[+month.slice(5,7)-1].slice(0,3);
+  r.querySelector(".tx div").textContent=b.name;const st=r.querySelector(".st");st.textContent=s.t||b.cat;st.className="st "+s.k;
+  r.querySelector(".r b").textContent=fmt(b.amt);
+  if(full){
+    if(s.k!=="paid"&&month<=curMonth){const p=document.createElement("button");p.textContent="Оплачено";p.onclick=()=>payBill(b,s.day);r.querySelector(".r").appendChild(p)}
+    const d=document.createElement("button");d.textContent="Убрать";d.style.color="var(--muted)";d.onclick=()=>{settings.bills=settings.bills.filter(x=>x.id!==b.id);saveSettings("Платёж убран");render()};r.querySelector(".r").appendChild(d);
+  }
+  return r;
+}
+async function payBill(b,day){
+  const date=month===curMonth?todayStr:month+"-"+pad(day);
+  try{await addDoc(month,[{id:uid(),t:"exp",amt:b.amt,cat:b.cat,date,who:me,merchant:b.name,src:"manual",bill:b.id,mark:"need"}]);toast(b.name+": оплачено")}catch(e){toast("Не удалось сохранить")}
+}
+function renderPlan(){
+  const bills=(settings.bills||[]).slice().sort((a,b)=>a.day-b.day);
+  const list=$("billList");list.innerHTML="";
+  let unpaid=0;
+  bills.forEach(b=>{const s=billStatus(b);if(s.k!=="paid")unpaid+=b.amt;list.appendChild(billRow(b,s,true))});
+  if(!bills.length)list.innerHTML='<div class="empty">Добавьте кредиты, коммуналку, кружки и подписки. Приложение подскажет срок и само отметит оплату, когда увидит её в операциях.</div>';
+  const exp=sumT(items,"exp"),inc=sumT(items,"inc"),base=settings.monthLimit||inc;
+  if(base){const free=base-exp-unpaid;$("freeAmt").textContent=(free<0?"−":"")+fmt(free);$("freeAmt").classList.toggle("neg",free<0);
+    $("freeSub").textContent=(settings.monthLimit?"Лимит ":"Доход ")+fmt(base)+" − потрачено "+fmt(exp)+(unpaid?" − впереди платежей "+fmt(unpaid):"")}
+  else{$("freeAmt").textContent=unpaid?fmt(unpaid):"—";$("freeAmt").classList.remove("neg");$("freeSub").textContent=unpaid?"Ещё предстоит заплатить в этом месяце. Задайте лимит или внесите доход, чтобы видеть свободный остаток":"Задайте лимит семьи во вкладке «Семья» или внесите доход"}
+  const names=new Set(bills.map(b=>b.name.toLowerCase()));
+  const sug=regulars(items.filter(i=>i.t==="exp")).filter(i=>!names.has(place(i).toLowerCase())&&!i.bill).slice(0,4);
+  $("billSuggest").hidden=!sug.length;const sl=$("billSugList");sl.innerHTML="";
+  sug.forEach(i=>{const r=document.createElement("div");r.className="ir";r.innerHTML='<span></span><button class="link" style="padding:0"></button>';r.querySelector("span").textContent=place(i)+" · "+fmt(i.amt);
+    const bt=r.querySelector("button");bt.textContent="В календарь";bt.onclick=()=>{settings.bills=(settings.bills||[]).concat({id:uid(),name:place(i).slice(0,40),amt:i.amt,day:+i.date.slice(8,10),cat:i.cat});saveSettings("Добавлено в календарь");render()};sl.appendChild(r)});
+  renderYear();
+}
+$("billAddOpen").onclick=()=>{$("billForm").hidden=false;opt($("bCat"),EXP,"Рассрочки и кредиты");$("bName").value="";$("bAmt").value="";$("bDay").value="";$("bName").focus()};
+$("billCancel").onclick=()=>{$("billForm").hidden=true};
+$("bAmt").addEventListener("input",e=>{const d=e.target.value.replace(/\D/g,"").slice(0,12);e.target.value=fmtIn(d)});
+$("billSave").onclick=()=>{
+  const name=$("bName").value.trim(),amt=Number($("bAmt").value.replace(/\D/g,"")),day=Number($("bDay").value.replace(/\D/g,""));
+  if(!name||!amt||!day||day>31){toast("Заполните название, сумму и число от 1 до 31");return}
+  settings.bills=(settings.bills||[]).concat({id:uid(),name:name.slice(0,40),amt,day,cat:$("bCat").value});$("billForm").hidden=true;saveSettings("Платёж добавлен");render();
+};
+
+/* ---------- year ---------- */
+async function renderYear(){
+  const y=month.slice(0,4);$("yrTitle").textContent=y+" год";
+  const ms=Array.from({length:12},(_,i)=>y+"-"+pad(i+1));
+  if(!yearCache||yearCache.y!==y){const c={y,items:null};yearCache=c;const all=await fetchMonths(ms);if(yearCache!==c)return;c.items=all}
+  if(!yearCache.items)return;
+  const by=ms.map(m=>{const l=yearCache.items.filter(i=>i.date&&i.date.slice(0,7)===m);return{m,exp:sumT(l,"exp"),inc:sumT(l,"inc")}});
+  const max=Math.max(...by.map(b=>b.exp),1);const act=by.filter(b=>b.exp>0);const tot=act.reduce((a,b)=>a+b.exp,0);
+  $("yrTotal").textContent=tot?"расходы "+fmt(tot):"";
+  const bars=$("yrBars");bars.innerHTML="";
+  const maxM=act.length>1?act.reduce((a,b)=>b.exp>a.exp?b:a):null;
+  by.forEach((b,i)=>{const bt=document.createElement("button");bt.className=[b.exp?"has":"",maxM&&b.m===maxM.m?"max":"",b.m===month?"cur":""].join(" ");
+    bt.setAttribute("aria-label",MON[i]+": "+fmt(b.exp));bt.innerHTML='<em class="num"></em><i></i><span></span>';bt.querySelector("em").textContent=b.exp?short(b.exp):"";
+    bt.querySelector("i").style.height=(b.exp?Math.max(b.exp/max*120,3):3)+"px";bt.querySelector("span").textContent=MONS[i];bt.onclick=()=>openMonth(b.m);bars.appendChild(bt)});
+  const st=$("yrStats");st.innerHTML="";const cats=$("yrCats");cats.innerHTML="";
+  if(!act.length){st.innerHTML='<div class="empty">За этот год записей пока нет.</div>';return}
+  const row=(a,b)=>{const r=document.createElement("div");r.className="ir";r.innerHTML='<span></span><b class="num"></b>';r.firstChild.textContent=a;r.lastChild.textContent=b;st.appendChild(r)};
+  row("Средний месяц",fmt(tot/act.length));
+  if(act.length>1){const min=act.reduce((a,b)=>b.exp<a.exp?b:a);row("Самый дорогой: "+MON[+maxM.m.slice(5)-1].toLowerCase(),fmt(maxM.exp));row("Самый экономный: "+MON[+min.m.slice(5)-1].toLowerCase(),fmt(min.exp))}
+  const incT=by.reduce((a,b)=>a+b.inc,0);if(incT)row("Доходы за год",fmt(incT));
+  const ex=yearCache.items.filter(i=>i.t==="exp");
+  const cs=EXP.map(c=>[c,ex.filter(i=>i.cat===c).reduce((a,i)=>a+i.amt,0)]).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  cs.forEach(([c,s])=>{const r=document.createElement("div");r.style.cssText="display:flex;flex-direction:column;gap:6px;padding:8px 0";r.innerHTML='<div class="row"><span></span><b class="num" style="font-weight:500"></b></div><div class="bar"><i></i></div>';
+    r.querySelector("span").textContent=c+" · "+Math.round(s/tot*100)+"%";r.querySelector("b").textContent=fmt(s);r.querySelector(".bar i").style.cssText="width:"+(s/cs[0][1]*100)+"%;background:"+catColor(c);cats.appendChild(r)});
+}
+
+/* ---------- ops ---------- */
+function renderOps(){
+  const ow=$("opsWho");ow.innerHTML="";
+  [{id:"all",name:"Все"}].concat(settings.members).forEach(m=>{const b=document.createElement("button");b.className="chip";b.textContent=m.name;b.setAttribute("aria-pressed",opsWho===m.id);b.onclick=()=>{opsWho=m.id;renderOps()};ow.appendChild(b)});
+  const os=$("opsSrc");os.innerHTML="";
+  [["all","Все записи"],["manual","Вручную"],["bank","Из выписки"],["inc","Доходы"],["waste","Зря"]].forEach(([k,t])=>{const b=document.createElement("button");b.className="chip";b.textContent=t;b.setAttribute("aria-pressed",opsSrc===k);b.onclick=()=>{opsSrc=k;renderOps()};os.appendChild(b)});
+  $("catFilterRow").hidden=!catFilter;$("catFilterLbl").textContent=catFilter?"Категория: "+catFilter:"";
+  let list=items.filter(i=>(opsWho==="all"||i.who===opsWho)&&(!catFilter||i.cat===catFilter));
+  if(opsSrc==="manual")list=list.filter(i=>i.src!=="bank");else if(opsSrc==="bank")list=list.filter(i=>i.src==="bank");else if(opsSrc==="inc")list=list.filter(i=>i.t==="inc");else if(opsSrc==="waste")list=list.filter(i=>i.mark==="waste");
+  list.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(a.id)));
+  const box=$("opsList");box.innerHTML="";
+  if(!list.length){box.innerHTML='<div class="empty">Операций нет. Напишите трату внизу или загрузите выписку.</div>';return}
+  let day=null;
+  list.forEach(i=>{
+    if(i.date!==day){day=i.date;const tot=list.filter(x=>x.date===day&&x.t==="exp").reduce((a,x)=>a+x.amt,0);const h=document.createElement("div");h.className="dayh";h.innerHTML='<span></span><span class="num"></span>';h.firstChild.textContent=dayLabel(day);h.lastChild.textContent=tot?"−"+fmt(tot):"";box.appendChild(h)}
+    const r=document.createElement("div");r.className="op";
+    r.innerHTML='<div class="l1" role="button" tabindex="0"><span class="dot"></span><div class="tx"><div></div><small></small></div><div class="am num"></div></div>';
+    r.querySelector(".dot").style.background=i.t==="inc"?"var(--good)":catColor(i.cat);
+    const t=r.querySelector(".tx div");t.textContent=place(i)||i.cat;if(i.mark){const m=document.createElement("span");m.className="mk "+i.mark;m.textContent=i.mark==="waste"?"зря":i.mark==="ok"?"можно было":"нужна";t.appendChild(m)}
+    r.querySelector(".tx small").textContent=[i.merchant||i.note?i.cat:"",mem(i.who).name,i.src==="bank"?"выписка":""].filter(Boolean).join(" · ");
+    const am=r.querySelector(".am");am.textContent=(i.t==="inc"?"+":"−")+fmt(i.amt);if(i.t==="inc")am.classList.add("inc");
+    const l1=r.querySelector(".l1");const tog=()=>{editId=editId===i.id?null:i.id;confirmDel=null;renderOps()};l1.onclick=tog;l1.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();tog()}};
+    if(editId===i.id){
+      const ed=document.createElement("div");ed.className="ed";
+      const sel=document.createElement("select");sel.id="edCat";sel.setAttribute("aria-label","Категория");opt(sel,i.t==="inc"?INC:EXP,i.cat);sel.onchange=async()=>{if(await updateItem(i,{cat:sel.value}))toast("Изменено")};
+      const ws=document.createElement("select");ws.id="edWho";ws.setAttribute("aria-label","Кто");opt(ws,settings.members.map(m=>m.name),i.who,settings.members.map(m=>m.id));ws.onchange=async()=>{if(await updateItem(i,{who:ws.value}))toast("Изменено")};
+      ed.append(sel,ws);
+      if(i.t==="exp"){const mk=document.createElement("select");mk.id="edMark";mk.setAttribute("aria-label","Оценка траты");opt(mk,["Без оценки","Нужна","Можно было без неё","Зря"],i.mark||"",["","need","ok","waste"]);mk.onchange=async()=>{if(await updateItem(i,{mark:mk.value}))toast("Изменено")};ed.appendChild(mk)}
+      const del=document.createElement("button");del.className="btn "+(confirmDel===i.id?"danger":"ghost");del.textContent=confirmDel===i.id?"Точно удалить?":"Удалить";
+      del.onclick=()=>{if(confirmDel===i.id){editId=null;confirmDel=null;removeItem(i)}else{confirmDel=i.id;renderOps()}};
+      ed.appendChild(del);r.appendChild(ed);
+    }
+    box.appendChild(r);
+  });
+}
+$("catFilterClear").onclick=()=>{catFilter=null;renderOps()};
+
+/* ---------- chat input ---------- */
+function guessCat(text,t){
+  const s=text.toLowerCase().trim();
+  const list=t==="exp"?EXP:INC;
+  const direct=list.find(c=>s.includes(c.toLowerCase().split(" ")[0]));if(direct)return direct;
+  if(s){
+    const hist={};items.concat(prevItems,olderItems).filter(i=>i.t===t).forEach(i=>{const p=place(i).toLowerCase();if(p&&p!==i.cat.toLowerCase()&&p.length>2&&(s.includes(p)||p.includes(s))){hist[i.cat]=(hist[i.cat]||0)+1}});
+    const h=Object.entries(hist).sort((a,b)=>b[1]-a[1])[0];if(h)return h[0];
+  }
+  for(const [re,c] of (t==="exp"?KW:KWI))if(re.test(s))return c;
+  return null;
+}
+const esc=x=>x.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+function parseChat(raw){
+  let s=" "+raw.trim()+" ";const low=s.toLowerCase();
+  const t=/^\s*\+/.test(s)||/доход|зарплат|пришл|поступ|получил/.test(low)?"inc":"exp";
+  let date=todayStr;const dd=new Date(now);
+  if(/позавчера/.test(low)){dd.setDate(dd.getDate()-2);date=dstr(dd);s=s.replace(/позавчера/i," ")}
+  else if(/вчера/.test(low)){dd.setDate(dd.getDate()-1);date=dstr(dd);s=s.replace(/вчера/i," ")}
+  else if(/сегодня/.test(low))s=s.replace(/сегодня/i," ");
+  const dm=s.match(/\s(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?(?=\s)/);
+  if(dm){const yy=dm[3]?(dm[3].length===2?"20"+dm[3]:dm[3]):String(now.getFullYear());const cand=yy+"-"+pad(dm[2])+"-"+pad(dm[1]);if(!isNaN(new Date(cand+"T12:00:00").getTime())&&+dm[2]<=12&&+dm[1]<=31)date=cand;s=s.replace(dm[0]," ")}
+  const am=s.match(/[+\-−]?\s*(\d{1,3}(?:[  ]\d{3})+|\d+)(?:[.,](\d{1,2}))?\s*(млн|тыс\.?|т(?=\s)|к(?=\s)|k(?=\s))?\s*(?:₸|тг|тенге)?/i);
+  if(!am)return null;
+  let amt=Number(am[1].replace(/[  ]/g,""))+(am[2]?Number("0."+am[2]):0);const mult=(am[3]||"").toLowerCase();
+  if(mult.startsWith("млн"))amt*=1e6;else if(mult)amt*=1e3;
+  if(!amt)return null;
+  s=s.replace(am[0]," ");
+  let who=me;
+  settings.members.forEach(m=>{if(m.name==="Я")return;const n=m.name.toLowerCase().replace(/[()]/g,"").split(/\s+/)[0];if(!n||n.length<2)return;const re=new RegExp("(^|\\s)"+esc(n)+"[а-яё]*(?=\\s|$)","i");if(re.test(s)){who=m.id;s=s.replace(re," ")}});
+  const spRe=/(^|\s)(жена|жене|супруга|супруге|муж|мужу|супруг)(?=\s|$)/i;
+  if(spRe.test(s)){const sp=settings.members.find(m=>/супруг|жена|муж/i.test(m.name))||settings.members[1];if(sp)who=sp.id;s=s.replace(spRe," ")}
+  let note=s.replace(/^\s*\+/,"").replace(/\s+/g," ").trim().replace(/^на\s+/i,"");
+  return{t,amt:Math.round(amt),date,who,note:note.charAt(0).toUpperCase()+note.slice(1)};
+}
+let lastAdded=null;
+$("chatForm").addEventListener("submit",async e=>{
+  e.preventDefault();const raw=$("chatIn").value;if(!raw.trim())return;
+  const p=parseChat(raw);if(!p){toast("Не вижу сумму. Пример: «магнум 8900»");return}
+  let cat=guessCat(p.note,p.t);
+  $("chatIn").value="";
+  if(!cat&&sample&&p.note){
+    showLast({amt:p.amt,t:p.t,note:p.note,who:p.who,date:p.date},true);
+    try{const r=await sample.json('Определи категорию '+(p.t==="exp"?"траты":"дохода")+' "'+p.note.slice(0,80)+'" (Казахстан). Категории: '+(p.t==="exp"?EXP:INC).join(", ")+'. Ответь только JSON {"c":"категория"}',{small:true});
+      if(r&&(p.t==="exp"?EXP:INC).includes(r.c))cat=r.c}catch(err){}
+  }
+  if(!cat)cat=p.t==="exp"?"Прочее":"Другой доход";
+  const it={id:uid(),t:p.t,amt:p.amt,cat,date:p.date,who:p.who,note:p.note.slice(0,80),src:"manual"};
+  try{const docId=await addDoc(it.date.slice(0,7),[it]);lastAdded=Object.assign({},it,{_doc:docId});showLast(lastAdded)}
+  catch(err){$("lastAdd").hidden=true;$("chatIn").value=raw;toast(err&&err.code==="quota_exceeded"?"Хранилище заполнено":"Не удалось сохранить. Проверьте интернет")}
+});
+function showLast(it,pending){
+  $("lastAdd").hidden=false;
+  $("lastT").textContent=(it.t==="inc"?"+":"−")+fmt(it.amt)+(it.note?" · "+it.note:"");
+  $("lastS").textContent=(pending?"Определяю категорию…":"Записано")+" · "+mem(it.who).name+(it.date!==todayStr?" · "+dayLabel(it.date).toLowerCase():"");
+  $("lastCat").hidden=!!pending;$("lastUndo").hidden=!!pending;
+  if(!pending)opt($("lastCat"),it.t==="exp"?EXP:INC,it.cat);
+  clearTimeout(showLast.t);if(!pending)showLast.t=setTimeout(()=>{if(document.activeElement!==$("lastCat"))$("lastAdd").hidden=true},12000);
+}
+$("lastCat").onchange=async()=>{if(!lastAdded)return;const c=$("lastCat").value;if(await updateItem(lastAdded,{cat:c})){lastAdded.cat=c;toast("Категория: "+c)}};
+$("lastUndo").onclick=async()=>{if(!lastAdded)return;const it=lastAdded;lastAdded=null;$("lastAdd").hidden=true;items=items.filter(x=>x.id!==it.id);render();const {error}=await sb.from("ops").delete().eq("id",it.id);if(error){toast("Не удалось отменить");scheduleReload()}else toast("Отменено")};
+
+/* ---------- form sheet ---------- */
+let sType="exp",sCat=null,sWho=me;
+function openSheet(){sType="exp";sCat=null;sWho=me;$("fAmt").value="";$("fNote").value="";$("fDate").value=month===curMonth?todayStr:month+"-01";drawSheet();$("sheetScrim").hidden=false;setTimeout(()=>$("fAmt").focus(),50)}
+function drawSheet(){
+  document.querySelectorAll("#fType button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.t===sType));
+  const g=$("fCats");g.innerHTML="";
+  (sType==="exp"?EXP:INC).forEach(c=>{const b=document.createElement("button");b.type="button";b.innerHTML='<span class="d"></span><span></span>';b.querySelector(".d").style.background=sType==="inc"?"var(--good)":catColor(c);b.lastChild.textContent=c;b.setAttribute("aria-pressed",sCat===c);b.onclick=()=>{sCat=c;drawSheet()};g.appendChild(b)});
+  const w=$("fWho");w.innerHTML="";settings.members.forEach(m=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=m.name;b.setAttribute("aria-pressed",sWho===m.id);b.onclick=()=>{sWho=m.id;drawSheet()};w.appendChild(b)});
+}
+document.querySelectorAll("#fType button").forEach(b=>b.onclick=()=>{sType=b.dataset.t;sCat=null;drawSheet()});
+const closeSheet=()=>{$("sheetScrim").hidden=true};
+$("sheetClose").onclick=closeSheet;$("openForm").onclick=openSheet;
+$("sheetScrim").addEventListener("click",e=>{if(e.target===$("sheetScrim"))closeSheet()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeSheet();$("revScrim").hidden=true}});
+$("fAmt").addEventListener("input",e=>{const d=e.target.value.replace(/\D/g,"").slice(0,12);e.target.value=fmtIn(d)});
+$("fSave").onclick=async()=>{
+  const amt=Number($("fAmt").value.replace(/\D/g,""));
+  if(!amt){toast("Введите сумму");$("fAmt").focus();return}
+  if(!sCat){toast("Выберите категорию");return}
+  const date=$("fDate").value||todayStr;
+  const it={id:uid(),t:sType,amt,cat:sCat,date,who:sWho,note:$("fNote").value.trim().slice(0,80),src:"manual"};closeSheet();
+  try{const docId=await addDoc(date.slice(0,7),[it]);lastAdded=Object.assign({},it,{_doc:docId});showLast(lastAdded)}
+  catch(e){toast(e&&e.code==="quota_exceeded"?"Хранилище заполнено":"Не удалось сохранить. Проверьте интернет")}
+};
+
+/* ---------- family ---------- */
+function renderFam(){
+  $("inviteCode").textContent=family&&family.invite_code||"—";
+  const fs=$("famSpend");fs.innerHTML="";const tot=sumT(items,"exp")||1;
+  settings.members.forEach(m=>{
+    const mine=items.filter(i=>i.t==="exp"&&i.who===m.id);const s=mine.reduce((a,i)=>a+i.amt,0);const w=mine.filter(i=>i.mark==="waste").reduce((a,i)=>a+i.amt,0);
+    const top=EXP.map(c=>[c,mine.filter(i=>i.cat===c).reduce((a,i)=>a+i.amt,0)]).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]).slice(0,2);
+    const r=document.createElement("div");r.style.cssText="display:flex;flex-direction:column;gap:6px";
+    r.innerHTML='<div class="row"><span></span><b class="num" style="font-weight:500"></b></div><div class="bar"><i></i></div><span class="sub"></span>';
+    r.querySelector("span").textContent=m.name;r.querySelector("b").textContent=fmt(s);
+    r.querySelector(".bar i").style.cssText="width:"+(s/tot*100)+"%;background:"+memColor(m.id);
+    r.querySelector(".sub").textContent=(top.length?"Больше всего: "+top.map(x=>x[0].toLowerCase()+" "+fmt(x[1])).join(", "):"Трат за месяц нет")+(w?" · зря "+fmt(w):"");
+    fs.appendChild(r);
+  });
+  const L=settings.monthLimit;if(L){const e=sumT(items,"exp");const n=document.createElement("div");n.className="sub";n.textContent="Семья потратила "+fmt(e)+" из лимита "+fmt(L)+(e>L?". Перерасход "+fmt(e-L):". Осталось "+fmt(L-e));if(e>L)n.style.color="var(--bad)";fs.appendChild(n)}
+  const fm=$("famMembers");fm.innerHTML="";
+  settings.members.forEach((m,idx)=>{
+    const r=document.createElement("div");r.className="mem";
+    r.innerHTML='<div class="av"></div><input aria-label="Имя участника"><button class="xb" aria-label="Убрать участника">×</button>';
+    r.querySelector(".av").style.background=memColor(m.id);r.querySelector(".av").textContent=(m.name||"?")[0];
+    const inp=r.querySelector("input");inp.id="mem-"+m.id;inp.value=m.name;inp.maxLength=24;
+    inp.onchange=()=>{m.name=inp.value.trim()||"Без имени";saveSettings("Сохранено");render()};
+    const del=r.querySelector("button");del.hidden=settings.members.length<=1||items.some(i=>i.who===m.id);
+    del.onclick=()=>{settings.members.splice(idx,1);if(me===m.id){me=settings.members[0].id;lsSet("fb-me",me)}saveSettings();render()};
+    fm.appendChild(r);
+  });
+  $("addMember").hidden=settings.members.length>=6;
+  opt($("meSel"),settings.members.map(m=>m.name),me,settings.members.map(m=>m.id));
+  if(document.activeElement!==$("limMonth"))$("limMonth").value=fmtIn(settings.monthLimit);
+  const lc=$("limCats");if(!lc.dataset.built){lc.dataset.built="1";EXP.forEach((c,i)=>{const l=document.createElement("label");const s=document.createElement("span");s.textContent=c;const inp=document.createElement("input");inp.id="lim-"+i;inp.className="num";inp.inputMode="numeric";inp.placeholder="без лимита";
+    inp.onchange=()=>{const v=Number(inp.value.replace(/\D/g,""));settings.limits=settings.limits||{};if(v)settings.limits[c]=v;else delete settings.limits[c];inp.value=fmtIn(v);saveSettings("Лимит сохранён")};l.append(s,inp);lc.appendChild(l)})}
+  EXP.forEach((c,i)=>{const inp=$("lim-"+i);if(document.activeElement!==inp)inp.value=fmtIn((settings.limits||{})[c])});
+}
+$("addMember").onclick=()=>{const id="m"+uid().slice(-5);settings.members.push({id,name:"Участник "+(settings.members.length+1)});saveSettings();render();setTimeout(()=>{const e=$("mem-"+id);if(e){e.focus();e.select()}},30)};
+$("meSel").onchange=async e=>{me=e.target.value;lsSet("fb-me",me);await sb.from("family_members").update({member_key:me}).eq("family_id",familyId).eq("user_id",userId);toast("Ваши записи теперь от имени: "+mem(me).name)};
+$("limMonth").onchange=e=>{const v=Number(e.target.value.replace(/\D/g,""));settings.monthLimit=v||0;e.target.value=fmtIn(v);saveSettings("Лимит сохранён");render()};
+
+/* ---------- import ---------- */
+$("impFile").onchange=()=>{$("impGo").disabled=!$("impFile").files.length||!sample};
+let impCtl=null,parsed=[];
+function status(t,p){$("impStatus").hidden=false;$("impStatus").textContent=t;if(p!=null){$("impProg").hidden=false;$("impProg").firstChild.style.width=Math.round(p*100)+"%"}}
+async function pdfToText(file){
+  if(!window.pdfjsLib)throw new Error("pdf");
+  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;const pages=[];
+  for(let p=1;p<=pdf.numPages;p++){status("Читаю страницу "+p+" из "+pdf.numPages,p/pdf.numPages*0.15);
+    const page=await pdf.getPage(p);const tc=await page.getTextContent();const lines={};
+    tc.items.forEach(it=>{if(!it.str||!it.str.trim())return;const y=Math.round(it.transform[5]/3);(lines[y]=lines[y]||[]).push(it)});
+    pages.push(Object.keys(lines).map(Number).sort((a,b)=>b-a).map(y=>lines[y].sort((a,b)=>a.transform[4]-b.transform[4]).map(i=>i.str.trim()).join("  ")).join("\n"))}
+  return{pdf,pages};
+}
+async function pdfToImages(pdf){const out=[];for(let p=1;p<=Math.min(pdf.numPages,20);p++){const page=await pdf.getPage(p);const vp=page.getViewport({scale:1.6});const c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;out.push(await new Promise(r=>c.toBlob(r,"image/png")))}return out}
+const PROMPT=`Ты разбираешь банковскую выписку из Казахстана (суммы в тенге). Извлеки ВСЕ операции из данных ниже.
+Ответь ТОЛЬКО JSON-массивом объектов вида:
+{"d":"YYYY-MM-DD","a":12500,"t":"exp","m":"Magnum","k":"purchase","c":"Продукты"}
+Поля:
+- d: дата операции (год бери из выписки; формат дд.мм.гг значит 20гг)
+- a: сумма, положительное число без знака
+- t: "exp" для списаний, "inc" для поступлений
+- m: магазин, сервис или имя получателя/отправителя, коротко (до 40 символов). Номера карт и счетов не пиши.
+- k: "purchase" покупка, "transfer" перевод человеку, "cash" снятие наличных, "payment" платёж (связь, коммуналка, кредит, рассрочка), "income" поступление, "internal" перевод между своими счетами, на свой депозит или погашение своей кредитной карты со своего счёта
+- c: категория. Для расходов одна из: ${EXP.join(", ")}. Для поступлений одна из: ${INC.join(", ")}.
+Переводы людям → "Переводы людям". Снятие в банкомате → "Наличные". Рассрочки, Kaspi Red, кредиты → "Рассрочки и кредиты". Поступления со счёта ИП/ТОО → "Из бизнеса".
+Не включай остатки, итоги, заголовки и строки без суммы. Если операций нет, ответь [].`;
+function normalize(arr,who){
+  if(!Array.isArray(arr)){const k=arr&&Object.values(arr).find(Array.isArray);arr=k||[]}
+  return arr.map(o=>{const d=String(o&&o.d||"");const a=Math.abs(Number(String(o&&o.a).replace(/[^\d.]/g,"")));const t=o&&o.t==="inc"?"inc":"exp";
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||!a)return null;let c=String(o.c||"");const list=t==="exp"?EXP:INC;if(!list.includes(c))c=t==="exp"?"Прочее":"Другой доход";
+    return{id:uid(),t,amt:Math.round(a),cat:c,date:d,who,merchant:String(o.m||"").replace(/\d{4,}/g,"").trim().slice(0,40),kind:String(o.k||""),src:"bank"}}).filter(Boolean);
+}
+$("impGo").onclick=async()=>{
+  const files=[...$("impFile").files];if(!files.length||!sample)return;
+  const who=$("impWho").value;impCtl=new AbortController();const sig=impCtl.signal;
+  $("impGo").disabled=true;$("impStop").hidden=false;$("reviewCard").hidden=true;parsed=[];
+  try{
+    const lim=await sample.limits().catch(()=>null);const maxImg=Math.min(lim&&lim.images?lim.images.maxCount:0,5);const jobs=[];
+    for(const f of files){
+      if(f.type==="application/pdf"||/\.pdf$/i.test(f.name)){const{pdf,pages}=await pdfToText(f);
+        if(pages.join("").replace(/\s/g,"").length<150){if(!maxImg)throw{code:"scan"};status("Выписка отсканирована, готовлю страницы как изображения",0.15);const imgs=await pdfToImages(pdf);for(let i=0;i<imgs.length;i+=maxImg)jobs.push({images:imgs.slice(i,i+maxImg)})}
+        else{let buf="";pages.forEach(p=>{if((buf+p).length>9000&&buf){jobs.push({text:buf});buf=""}buf+=p+"\n"});if(buf.trim())jobs.push({text:buf})}}
+      else{if(!maxImg)throw{code:"noimg"};jobs.push({images:[f]})}
+    }
+    const merged=[];jobs.forEach(j=>{const last=merged[merged.length-1];if(j.images&&last&&last.images&&last.images.length+j.images.length<=maxImg)last.images=last.images.concat(j.images);else merged.push(j)});
+    for(let i=0;i<merged.length;i++){
+      if(sig.aborted)throw{code:"cancelled"};
+      status("Claude разбирает часть "+(i+1)+" из "+merged.length+". Это может занять до минуты",0.15+0.85*i/merged.length);
+      const j=merged[i];
+      const input=j.text?PROMPT+"\n\nДанные выписки:\n<<<\n"+j.text.slice(0,60000)+"\n>>>":PROMPT+"\n\nДанные выписки на приложенных изображениях (страницы выписки или скриншоты операций).";
+      const opts={signal:sig};if(j.images)opts.images=j.images;
+      parsed=parsed.concat(normalize(await sample.json(input,opts),who));
+    }
+    status("Готово: найдено операций "+parsed.length,1);await buildReview();
+  }catch(e){
+    const c=e&&e.code;
+    const msg=c==="cancelled"?"Разбор остановлен":c==="no_key"?"Не настроен ключ Claude. Проверьте шаг 4 инструкции":c==="no_credit"?"На счёте Claude API закончились деньги. Пополните баланс в Claude Console":c==="session_expired"?"Войдите в аккаунт заново и повторите":c==="not_granted"||c==="sampling_disabled"?"Без разрешения Claude разобрать выписку нельзя. Разрешите доступ, когда страница спросит":c==="rate_limited"?"Слишком много запросов. Попробуйте через несколько минут":c==="invalid_json"?"Не получилось разобрать ответ. Попробуйте ещё раз или загрузите выписку частями":c==="scan"||c==="noimg"?"Эта выписка состоит из картинок, а отправка изображений сейчас недоступна. Попробуйте PDF-выписку из приложения банка":c==="prompt_too_large"?"Слишком большой файл. Загрузите выписку за более короткий период":e&&e.message==="pdf"?"Не загрузилась программа чтения PDF. Обновите страницу":"Не удалось разобрать файл. Проверьте, что это выписка, и попробуйте ещё раз";
+    status(msg,null);$("impProg").hidden=true;if(parsed.length)await buildReview();
+  }finally{$("impGo").disabled=!$("impFile").files.length;$("impStop").hidden=true;impCtl=null}
+};
+$("impStop").onclick=()=>impCtl&&impCtl.abort();
+async function buildReview(){
+  if(!parsed.length){$("reviewCard").hidden=true;return}
+  const months=[...new Set(parsed.map(p=>p.date.slice(0,7)))];const keys=new Set();
+  (await fetchMonths(months.slice(0,30))).forEach(i=>keys.add(i.date+"|"+i.amt+"|"+i.t));
+  const seen=new Set();
+  parsed.forEach(p=>{const k=p.date+"|"+p.amt+"|"+p.t;p._dup=keys.has(k);p._int=p.kind==="internal";p._on=!p._dup&&!p._int;if(seen.has(k+"|"+p.merchant))p._on=false;seen.add(k+"|"+p.merchant)});
+  parsed.sort((a,b)=>b.date.localeCompare(a.date));drawImpReview();$("reviewCard").hidden=false;$("reviewCard").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function drawImpReview(){
+  const box=$("revList");box.innerHTML="";
+  parsed.forEach((p,idx)=>{
+    const r=document.createElement("div");r.className="irow";
+    r.innerHTML='<input type="checkbox"><div class="tx"><div></div><small></small></div><b class="num" style="font-weight:500"></b><select></select>';
+    const cb=r.querySelector("input");cb.id="rv-"+idx;cb.checked=p._on;cb.setAttribute("aria-label","Сохранить операцию");cb.onchange=()=>{p._on=cb.checked;count()};
+    r.querySelector(".tx div").textContent=p.merchant||p.cat;
+    const sm=r.querySelector(".tx small");sm.textContent=p.date.slice(8,10)+"."+p.date.slice(5,7);
+    if(p._dup){const t=document.createElement("span");t.className="tag dup";t.textContent="уже есть";sm.appendChild(t)}
+    if(p._int){const t=document.createElement("span");t.className="tag int";t.textContent="между своими счетами";sm.appendChild(t)}
+    const b=r.querySelector("b");b.textContent=(p.t==="inc"?"+":"−")+fmt(p.amt);if(p.t==="inc")b.style.color="var(--good)";
+    const sel=r.querySelector("select");sel.id="rc-"+idx;sel.setAttribute("aria-label","Категория");opt(sel,p.t==="inc"?INC:EXP,p.cat);
+    sel.onchange=()=>{p.cat=sel.value;parsed.forEach(q=>{if(q!==p&&q.merchant&&q.merchant===p.merchant&&q.t===p.t)q.cat=sel.value});drawImpReview()};
+    box.appendChild(r);
+  });
+  count();
+}
+function count(){const on=parsed.filter(p=>p._on);$("revCount").textContent=on.length+" из "+parsed.length;$("revSave").textContent="Сохранить "+on.length;$("revSave").disabled=!on.length}
+$("revCancel").onclick=()=>{parsed=[];$("reviewCard").hidden=true};
+$("revSave").onclick=async()=>{
+  const on=parsed.filter(p=>p._on).map(p=>{const o=Object.assign({},p);delete o._on;delete o._dup;delete o._int;return o});
+  const by={};on.forEach(o=>{(by[o.date.slice(0,7)]=by[o.date.slice(0,7)]||[]).push(o)});
+  $("revSave").disabled=true;
+  try{for(const[m,list]of Object.entries(by)){for(let i=0;i<list.length;i+=400)await addDoc(m,list.slice(i,i+400))}
+    toast("Сохранено операций: "+on.length);parsed=[];$("reviewCard").hidden=true;$("impFile").value="";$("impGo").disabled=true;$("impStatus").hidden=true;$("impProg").hidden=true;
+    const months=Object.keys(by).sort();if(months.length&&!months.includes(month))openMonth(months[months.length-1]);setTab("home");
+  }catch(e){toast(e&&e.code==="quota_exceeded"?"Хранилище заполнено":"Не удалось сохранить. Проверьте интернет");$("revSave").disabled=false}
+};
+
+/* ---------- tabs & months ---------- */
+function setTab(t){tab=t;
+  ["home","ops","plan","imp","fam"].forEach(k=>{$("v-"+k).hidden=k!==t});
+  document.querySelectorAll("nav.tabs button").forEach(b=>{if(b.dataset.tab===t)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
+  $("composer").hidden=!(t==="home"||t==="ops");
+  if(t==="imp")opt($("impWho"),settings.members.map(m=>m.name),me,settings.members.map(m=>m.id));
+  if(t==="plan")yearCache=null;
+  editId=null;confirmDel=null;render();window.scrollTo(0,0);
+}
+document.querySelectorAll("nav.tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+$("toPlan").onclick=()=>setTab("plan");
+async function openMonth(m){
+  month=m;items=[];docs=[];prevItems=[];olderItems=[];editId=null;render();subscribe();
+  const p1=shiftMonth(m,-1),p2=shiftMonth(m,-2);const all=await fetchMonths([p1,p2]);
+  if(month===m){prevItems=all.filter(i=>i.date&&i.date.slice(0,7)===p1);olderItems=all.filter(i=>i.date&&i.date.slice(0,7)===p2);render()}
+}
+$("prev").onclick=()=>openMonth(shiftMonth(month,-1));
+$("next").onclick=()=>openMonth(shiftMonth(month,1));
+
+/* ---------- boot ---------- */
+try{if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"}catch(e){}
+const gate=$("gate");
+function showGate(part,sub){["gCfg","gAuth","gFam"].forEach(k=>$(k).hidden=k!==part);$("gSub").textContent=sub||"";$("gErr").textContent="";gate.hidden=false;$("appRoot").hidden=true;$("composer").hidden=true;$("tabsNav").hidden=true}
+const gErr=t=>{$("gErr").textContent=t};
+function cfg(){const c=window.APP_CONFIG||{};let url=c.supabaseUrl,key=c.supabaseKey;if(!url||!key){url=lsGet("fb-url");key=lsGet("fb-key")}return url&&key?{url,key}:null}
+$("gCfg").addEventListener("submit",e=>{e.preventDefault();const u=$("cfgUrl").value.trim().replace(/\/+$/,""),k=$("cfgKey").value.trim();if(!/^https:\/\/.+\.supabase\.co$/.test(u)||k.length<20)return gErr("Проверьте адрес и ключ: адрес вида https://xxxx.supabase.co");lsSet("fb-url",u);lsSet("fb-key",k);start()});
+let signUp=false;
+$("aSwitch").onclick=()=>{signUp=!signUp;$("aGo").textContent=signUp?"Зарегистрироваться":"Войти";$("aSwitch").textContent=signUp?"Уже есть аккаунт? Войти":"Нет аккаунта? Зарегистрироваться";$("aPass").autocomplete=signUp?"new-password":"current-password";gErr("")};
+$("gAuth").addEventListener("submit",async e=>{
+  e.preventDefault();const email=$("aEmail").value.trim(),password=$("aPass").value;
+  if(!email||password.length<6)return gErr("Введите почту и пароль не короче 6 символов");
+  $("aGo").disabled=true;gErr("");
+  try{
+    const r=signUp?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});
+    if(r.error){const m=r.error.message||"";gErr(/invalid login/i.test(m)?"Неверная почта или пароль":/already registered|already been registered/i.test(m)?"Такая почта уже зарегистрирована. Нажмите «Войти»":/confirm/i.test(m)?"Подтвердите почту по ссылке из письма, затем войдите":"Не получилось: "+m);return}
+    if(signUp&&!r.data.session){gErr("Мы отправили письмо. Подтвердите почту по ссылке, вернитесь сюда и войдите");signUp=false;$("aSwitch").onclick();$("aSwitch").onclick();return}
+    await afterAuth();
+  }catch(err){gErr("Нет связи с сервером. Проверьте интернет")}finally{$("aGo").disabled=false}
+});
+$("famOut").onclick=async()=>{await sb.auth.signOut();location.reload()};
+$("signOut").onclick=async()=>{await sb.auth.signOut();location.reload()};
+$("copyCode").onclick=async()=>{const c=family&&family.invite_code;if(!c)return;try{await navigator.clipboard.writeText(c);toast("Код скопирован")}catch(e){toast("Код: "+c)}};
+$("famNew").addEventListener("submit",async e=>{
+  e.preventDefault();const name=$("fnName").value.trim()||"Я";
+  const s={members:[{id:"m1",name},{id:"m2",name:"Супруг(а)"}],monthLimit:0,limits:{},bills:[]};
+  const {error}=await sb.rpc("create_family",{p_settings:s,p_member_key:"m1"});
+  if(error)return gErr("Не получилось создать: "+error.message);
+  await afterAuth();
+});
+$("famJoin").addEventListener("submit",async e=>{
+  e.preventDefault();const code=$("fjCode").value.trim().toUpperCase(),name=$("fjName").value.trim()||"Супруг(а)";
+  if(code.length<6)return gErr("Введите код приглашения из приложения супруга(и)");
+  const {data:fid,error}=await sb.rpc("join_family",{p_code:code,p_member_key:"pending"});
+  if(error)return gErr(/code not found/i.test(error.message)?"Код не найден. Проверьте его в разделе «Семья» у супруга(и)":"Не получилось: "+error.message);
+  const [{data:fam},{data:mems}]=await Promise.all([sb.from("families").select("*").eq("id",fid).single(),sb.from("family_members").select("member_key,user_id").eq("family_id",fid)]);
+  const st=Object.assign({members:[]},fam&&fam.settings||{});const taken=new Set((mems||[]).filter(m=>m.user_id!==userId).map(m=>m.member_key));
+  let mine=st.members.find(m=>!taken.has(m.id));
+  if(mine)mine.name=name;else{mine={id:"m"+uid().slice(0,5),name};st.members.push(mine)}
+  await sb.from("families").update({settings:st}).eq("id",fid);
+  await sb.from("family_members").update({member_key:mine.id}).eq("family_id",fid).eq("user_id",userId);
+  await afterAuth();
+});
+async function afterAuth(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){showGate("gAuth","Войдите или зарегистрируйтесь. Супруг(а) заводит свой аккаунт отдельно");return}
+  userId=session.user.id;$("accEmail").textContent="Вы вошли как "+session.user.email;
+  const {data:mem,error}=await sb.from("family_members").select("family_id,member_key").eq("user_id",userId).limit(1);
+  if(error){showGate("gAuth","Не удалось связаться с базой. Проверьте интернет и настройки из инструкции");return}
+  if(!mem||!mem.length){showGate("gFam","Создайте семейный бюджет или присоединитесь по коду супруга(и)");return}
+  familyId=mem[0].family_id;me=mem[0].member_key;lsSet("fb-me",me);
+  const {data:fam}=await sb.from("families").select("*").eq("id",familyId).single();
+  family=fam;if(fam)applySettings(fam.settings);
+  sample=makeSample();
+  gate.hidden=true;$("appRoot").hidden=false;$("tabsNav").hidden=false;
+  $("impNoSample").hidden=true;$("impGo").disabled=!$("impFile").files.length;
+  setTab("home");subscribe();openMonth(month);
+}
+function start(){
+  const c=cfg();
+  if(!c||!window.supabase){showGate("gCfg",window.supabase?"Первый запуск: вставьте адрес и ключ из Supabase (шаг 5 инструкции)":"Нет связи. Проверьте интернет и откройте приложение снова");return}
+  sb=window.supabase.createClient(c.url,c.key,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"fb-auth"}});
+  sb.auth.onAuthStateChange(ev=>{if(ev==="SIGNED_OUT"&&familyId)location.reload()});
+  showGate("gAuth","Войдите или зарегистрируйтесь. Супруг(а) заводит свой аккаунт отдельно");
+  afterAuth().catch(()=>showGate("gAuth","Нет связи с сервером. Проверьте интернет"));
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&familyId){reloadMonth();sb.from("families").select("settings").eq("id",familyId).single().then(r=>{if(r.data)applySettings(r.data.settings)})}});
+start();
+})();
+</script>
+</body>
+</html>
