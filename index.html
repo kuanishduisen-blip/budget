@@ -1056,7 +1056,7 @@ $("gAuth").addEventListener("submit",async e=>{
   try{
     const r=signUp?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});
     if(r.error){const m=r.error.message||"";gErr(/invalid login/i.test(m)?"Неверная почта или пароль":/already registered|already been registered/i.test(m)?"Такая почта уже зарегистрирована. Нажмите «Войти»":/confirm/i.test(m)?"Подтвердите почту по ссылке из письма, затем войдите":"Не получилось: "+m);return}
-    if(signUp&&!r.data.session){gErr("Мы отправили письмо. Подтвердите почту по ссылке, вернитесь сюда и войдите");signUp=false;$("aSwitch").onclick();$("aSwitch").onclick();return}
+    if(signUp&&!r.data.session){const r2=await sb.auth.signInWithPassword({email,password});if(r2.error){gErr("Аккаунт создан. Нажмите «Уже есть аккаунт? Войти» и войдите");return}}
     await afterAuth();
   }catch(err){gErr("Нет связи с сервером. Проверьте интернет")}finally{$("aGo").disabled=false}
 });
